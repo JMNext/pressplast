@@ -11,28 +11,20 @@ concurrency:
 
 jobs:
   web-deploy:
-    name: 🎉 Deploy
+    name: 🎉 Deploy via SFTP
     runs-on: ubuntu-latest
     steps:
       - name: 🚚 Get latest code
         uses: actions/checkout@v4
 
-      - name: 📂 Sync files
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: 📂 Sync files via SFTP (rsync)
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
-          server: p1036777.ftp.ihc.ru
           username: p1036777
+          server: p1036777.ftp.ihc.ru
+          port: 22
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /www/matrixplast.ru/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.agents*
-            **/.agents*/**
-            **/tasks/**
-            **/AGENTS.md
-            **/AGENTS.local.md
-            **/CLAUDE.md
-            **/GEMINI.md
-            **/README.md
+          local_path: './*'
+          remote_path: '/home/p1036777/www/matrixplast.ru'
+          sftpArgs: '-o ConnectTimeout=5'
+          rsyncArgs: '--exclude=.git* --exclude=.agents* --exclude=tasks --exclude=AGENTS.md --exclude=AGENTS.local.md --exclude=CLAUDE.md --exclude=GEMINI.md --exclude=README.md'
