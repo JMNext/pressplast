@@ -1,0 +1,38 @@
+name: Deploy Website to IHC.ru
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: true
+
+jobs:
+  web-deploy:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 📂 Sync files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: p1036777.ftp.ihc.ru
+          username: p1036777
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /www/matrixplast.ru/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.agents*
+            **/.agents*/**
+            **/tasks/**
+            **/AGENTS.md
+            **/AGENTS.local.md
+            **/CLAUDE.md
+            **/GEMINI.md
+            **/README.md
