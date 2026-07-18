@@ -520,25 +520,25 @@
                     <form id="lead-form" class="cta-form">
                         <div class="form-group">
                             <label class="form-label" for="client-name">ИМЯ / НАЗВАНИЕ КОМПАНИИ *</label>
-                            <input type="text" id="client-name" required placeholder="Иван Иванов / ООО МеталлПром"
+                            <input type="text" id="client-name" name="client-name" required placeholder="Иван Иванов / ООО МеталлПром"
                                 class="form-control text-input">
                         </div>
 
                         <div class="form-group">
                             <label class="form-label" for="client-phone">КОНТАКТНЫЙ ТЕЛЕФОН *</label>
-                            <input type="tel" id="client-phone" required placeholder="+7 (999) 000-00-00"
+                            <input type="tel" id="client-phone" name="client-phone" required placeholder="+7 (999) 000-00-00"
                                 class="form-control text-input">
                         </div>
 
                         <div class="form-group">
                             <label class="form-label" for="client-email">EMAIL ДЛЯ ОТПРАВКИ СМЕТЫ *</label>
-                            <input type="email" id="client-email" required placeholder="name@company.ru"
+                            <input type="email" id="client-email" name="client-email" required placeholder="name@company.ru"
                                 class="form-control text-input">
                         </div>
 
                         <div class="form-group">
                             <label class="form-label" for="client-message">ТЕХНИЧЕСКИЕ ТРЕБОВАНИЯ И КОММЕНТАРИЙ</label>
-                            <textarea id="client-message"
+                            <textarea id="client-message" name="client-message"
                                 placeholder="Укажите габариты детали, примерный вес, требования к прочности или особенности эксплуатации..."
                                 class="form-control text-input textarea-control"></textarea>
                         </div>
@@ -546,13 +546,18 @@
                         <div class="form-group">
                             <label class="form-label">ПРИКРЕПИТЬ ЧЕРТЕЖИ / ЭСКИЗЫ (PDF, STEP, STP, DWG, PNG)</label>
                             <div class="file-upload-wrapper">
-                                <input type="file" id="client-file" class="file-input">
+                                <input type="file" id="client-file" name="client-file" class="file-input">
                                 <div class="file-upload-btn">
                                     <span class="file-upload-icon">+</span>
                                     <span class="file-upload-text">ВЫБРАТЬ ФАЙЛ С КОМПЬЮТЕРА</span>
                                 </div>
                                 <span class="file-name-display" id="file-name-display">Файл не выбран</span>
                             </div>
+                        </div>
+
+                        <!-- Защита от спама Honeypot (абсолютно скрыто для людей) -->
+                        <div style="display:none !important; position:absolute; width:0; height:0; z-index:-1;">
+                            <input type="text" name="client_website" autocomplete="off" tabindex="-1">
                         </div>
 
                         <button type="submit" class="btn btn-large btn-accent btn-block btn-submit">

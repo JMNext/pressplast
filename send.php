@@ -13,6 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+// Защита от спам-ботов Honeypot (поле-ловушка)
+$bot_trap = trim($_POST['client_website'] ?? '');
+if (!empty($bot_trap)) {
+    // Имитируем успешную отправку для робота
+    echo json_encode(['success' => true, 'request_id' => 'MP-' . mt_rand(100000, 999999)]);
+    exit;
+}
+
 // Конфигурация получателя и отправителя
 $to = 'jmaier@mail.ru'; // Отладочный email (заменится на MATRIXPLAST@yandex.ru после тестов)
 $from = 'admin@matrixplast.ru';
