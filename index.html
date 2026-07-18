@@ -773,17 +773,72 @@
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
 
-                // Генерируем ID запроса
-                const randomId = 'MP-' + Math.floor(100000 + Math.random() * 900000);
-                requestIdSpan.textContent = randomId;
+                // Находим кнопку отправки
+                const submitBtn = form.querySelector('.btn-submit');
+                const originalBtnText = submitBtn.textContent;
+                
+                // Блокируем кнопку отправки и меняем текст
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'ОТПРАВКА ЗАЯВКИ...';
 
-                // Показываем модалку
-                modal.classList.add('active');
+                // Собираем FormData
+                const formData = new FormData(form);
 
-                // Сбрасываем форму
-                form.reset();
-                fileDisplay.textContent = 'Файл не выбран';
-                recalculate();
+                // Добавляем данные расчета из калькулятора
+                const selectedOption = materialSelect.options[materialSelect.selectedIndex];
+                formData.append('calc-material', selectedOption.text);
+                formData.append('calc-qty', qtyInput.value);
+                
+                let hasMoldVal = 'no';
+                for (const radio of moldRadios) {
+                    if (radio.checked) {
+                        hasMoldVal = radio.value;
+                    }
+                }
+                formData.append('has-mold', hasMoldVal);
+                formData.append('price-per-pcs', pricePerPcsVal.textContent);
+                formData.append('price-total', priceTotalVal.textContent);
+
+                // Отправляем запрос через fetch
+                fetch('send.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { 
+                            throw new Error(err.error || 'Ошибка при обработке запроса сервером.'); 
+                        }).catch(() => {
+                            throw new Error('Ошибка сервера (код ' + response.status + ').');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Заполняем ID запроса из ответа сервера
+                        requestIdSpan.textContent = data.request_id;
+                        
+                        // Показываем модалку
+                        modal.classList.add('active');
+
+                        // Сбрасываем форму
+                        form.reset();
+                        fileDisplay.textContent = 'Файл не выбран';
+                        recalculate();
+                    } else {
+                        alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    alert('Не удалось отправить заявку. Ошибка: ' + error.message);
+                })
+                .finally(() => {
+                    // Разблокируем кнопку
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                });
             });
 
             function closeModal() {
