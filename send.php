@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Защита от спам-ботов Honeypot (поле-ловушка)
-$bot_trap = trim($_POST['client_website'] ?? '');
+$bot_trap = trim($_POST['client_midname'] ?? '');
 if (!empty($bot_trap)) {
     // Имитируем успешную отправку для робота
     echo json_encode(['success' => true, 'request_id' => 'MP-' . mt_rand(100000, 999999)]);
@@ -156,8 +156,8 @@ if ($file_attached && $file_data !== null) {
 
 $body .= "--$boundary--";
 
-// Отправка письма
-if (mail($to, $subject, $body, $headers)) {
+// Отправка письма с добавлением параметра -f для корректного Envelope Sender (Return-Path)
+if (mail($to, $subject, $body, $headers, "-f $from")) {
     echo json_encode(['success' => true, 'request_id' => $request_id]);
 } else {
     http_response_code(500);
