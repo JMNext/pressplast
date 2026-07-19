@@ -4,7 +4,8 @@
  * Совместимость с PHP 7.2.34
  */
 
-// Установка заголовка для ответа в формате JSON
+// Установка часового пояса и формата ответа JSON
+date_default_timezone_set('Europe/Moscow');
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -17,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $bot_trap = trim($_POST['client_midname'] ?? '');
 if (!empty($bot_trap)) {
     // Имитируем успешную отправку для робота
-    echo json_encode(['success' => true, 'request_id' => 'MP-' . mt_rand(100000, 999999)]);
+    echo json_encode(['success' => true, 'request_id' => date('Ymd-His')]);
     exit;
 }
 
@@ -66,8 +67,8 @@ if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
-// Генерация уникального ID заявки
-$request_id = 'MP-' . mt_rand(100000, 999999);
+// Генерация уникального ID заявки по маске YYYYMMDD-hhmmss
+$request_id = date('Ymd-His');
 
 // Обработка прикрепленного файла
 $file_attached = false;
