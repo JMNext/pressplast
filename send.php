@@ -22,8 +22,22 @@ if (!empty($bot_trap)) {
 }
 
 // Конфигурация получателя и отправителя
-$to = 'jmaier@mail.ru'; // Отладочный email (заменится на MATRIXPLAST@yandex.ru после тестов)
+$to = 'jmaier@mail.ru'; // Отладочный email получателя заявок
+//$to = 'MATRIXPLAST@yandex.ru'; // Рабочий email получателя заявок
 $from = 'admin@matrixplast.ru';
+
+// Загрузка локальной конфигурации секретов
+$config = [];
+if (file_exists(__DIR__ . '/config.php')) {
+    $config = include __DIR__ . '/config.php';
+}
+$smtp_password = $config['smtp_password'] ?? '';
+
+if (empty($smtp_password)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Ошибка конфигурации сервера: SMTP пароль не задан.']);
+    exit;
+}
 
 // Сбор и очистка текстовых данных из формы
 $client_name = htmlspecialchars(trim($_POST['client-name'] ?? ''));
@@ -105,11 +119,16 @@ $subject = "=?utf-8?B?" . base64_encode($subject) . "?=";
 $boundary = md5(uniqid(time()));
 
 // Заголовки письма
-$headers = "MIME-Version: 1.0\r\n";
-$headers .= "From: МАТРИКС-ПЛАСТ <$from>\r\n";
-$headers .= "Reply-To: $client_email\r\n";
-$headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
-$headers .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
+// Заголовки письма (ассоциативный массив для SMTP)
+$headers_arr = [
+    'MIME-Version' => '1.0',
+    'From' => "МАТРИКС-ПЛАСТ <$from>",
+    'To' => $to,
+    'Subject' => $subject,
+    'Reply-To' => $client_email,
+    'X-Mailer' => 'PHP/' . phpversion(),
+    'Content-Type' => "multipart/mixed; boundary=\"$boundary\""
+];
 
 // Текст сообщения
 $message_body = "Техническое задание на расчет стоимости литья пластмасс\r\n";
@@ -156,10 +175,91 @@ if ($file_attached && $file_data !== null) {
 
 $body .= "--$boundary--";
 
-// Отправка письма с добавлением параметра -f для корректного Envelope Sender (Return-Path)
-if (mail($to, $subject, $body, $headers, "-f $from")) {
+// Отправка письма через SMTP с авторизацией
+try {
+    send_mail_smtp($to, $subject, $body, $headers_arr, $from, $smtp_password);
     echo json_encode(['success' => true, 'request_id' => $request_id]);
-} else {
+} catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Не удалось отправить письмо через серверную почтовую службу.']);
+    echo json_encode(['success' => false, 'error' => 'Ошибка отправки почты через SMTP: ' . $e->getMessage()]);
+}
+
+/**
+ * Функция отправки почты через SMTP-сервер с SSL шифрованием и авторизацией.
+ */
+function send_mail_smtp($to, $subject, $body, $headers_arr, $from, $password, $smtp_host = 'ssl://p1036777.mail.ihc.ru', $smtp_port = 465) {
+    $timeout = 15;
+    
+    // Открываем сокетное соединение к SMTP серверу
+    $socket = @fsockopen($smtp_host, $smtp_port, $errno, $errstr, $timeout);
+    if (!$socket) {
+        throw new Exception("Не удалось подключиться к SMTP-серверу $smtp_host:$smtp_port. Ошибка: $errstr ($errno)");
+    }
+    
+    // Вспомогательная функция чтения ответов
+    $readResponse = function($socket, $expected_code) {
+        $response = '';
+        while ($line = fgets($socket, 515)) {
+            $response .= $line;
+            if (substr($line, 3, 1) === ' ') {
+                break;
+            }
+        }
+        $code = substr($response, 0, 3);
+        if ($code !== (string)$expected_code) {
+            throw new Exception("Код SMTP: $code, Ожидался: $expected_code. Ответ: " . trim($response));
+        }
+        return $response;
+    };
+    
+    try {
+        $readResponse($socket, 220);
+        
+        fwrite($socket, "EHLO " . mail_domain($from) . "\r\n");
+        $readResponse($socket, 250);
+        
+        fwrite($socket, "AUTH LOGIN\r\n");
+        $readResponse($socket, 334);
+        
+        fwrite($socket, base64_encode($from) . "\r\n");
+        $readResponse($socket, 334);
+        
+        fwrite($socket, base64_encode($password) . "\r\n");
+        $readResponse($socket, 235);
+        
+        fwrite($socket, "MAIL FROM: <$from>\r\n");
+        $readResponse($socket, 250);
+        
+        fwrite($socket, "RCPT TO: <$to>\r\n");
+        $readResponse($socket, 250);
+        
+        fwrite($socket, "DATA\r\n");
+        $readResponse($socket, 354);
+        
+        // Формируем строковые заголовки
+        $raw_headers = "";
+        foreach ($headers_arr as $k => $v) {
+            $raw_headers .= "$k: $v\r\n";
+        }
+        
+        // Отправка заголовков и тела письма
+        fwrite($socket, $raw_headers . "\r\n" . $body . "\r\n.\r\n");
+        $readResponse($socket, 250);
+        
+        fwrite($socket, "QUIT\r\n");
+        fclose($socket);
+        return true;
+    } catch (Exception $e) {
+        fwrite($socket, "QUIT\r\n");
+        fclose($socket);
+        throw $e;
+    }
+}
+
+/**
+ * Получение домена из email для команды EHLO
+ */
+function mail_domain($email) {
+    $parts = explode('@', $email);
+    return end($parts);
 }

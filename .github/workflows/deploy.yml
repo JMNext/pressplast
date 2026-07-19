@@ -27,4 +27,4 @@ jobs:
           local_path: './*'
           remote_path: '/home/p1036777/www/matrixplast.ru'
           sftpArgs: '-o ConnectTimeout=5'
-          rsyncArgs: '--exclude=.git* --exclude=.agents* --exclude=tasks --exclude=AGENTS.md --exclude=AGENTS.local.md --exclude=CLAUDE.md --exclude=GEMINI.md --exclude=README.md'
+          rsyncArgs: '--exclude=.git* --exclude=.agents* --exclude=tasks --exclude=AGENTS.md --exclude=AGENTS.local.md --exclude=CLAUDE.md --exclude=GEMINI.md --exclude=README.md --exclude=config.php'
