@@ -1608,3 +1608,125 @@ select.form-control {
     to { transform: translateY(0); opacity: 1; }
 }
 
+/* 15. LEGAL PAGES STYLING (ПОЛЬЗОВАТЕЛЬСКИЕ СОГЛАШЕНИЯ И ПОЛИТИКИ) */
+.legal-page {
+    padding: 140px 0 60px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.legal-card {
+    background-color: var(--bg-white);
+    border: 3px solid #000000;
+    padding: 45px;
+    box-shadow: 8px 8px 0px 0px #000000;
+    margin-bottom: 40px;
+    color: #000000;
+}
+
+.legal-title {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+    color: #000000;
+    line-height: 1.15;
+}
+
+.legal-meta {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    background-color: #000000;
+    color: #ffffff;
+    padding: 10px 16px;
+    margin-bottom: 30px;
+    display: inline-block;
+}
+
+.legal-content h2 {
+    font-size: 1.25rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: 35px 0 15px;
+    color: #000000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 2px solid #000000;
+    padding-bottom: 6px;
+}
+
+.legal-content h2::before {
+    content: '//';
+    color: var(--accent-orange);
+    font-family: var(--font-mono);
+}
+
+.legal-content p, 
+.legal-content li {
+    font-size: 1rem;
+    line-height: 1.65;
+    color: #111111;
+    margin-bottom: 15px;
+}
+
+.legal-content ul {
+    padding-left: 24px;
+    margin-bottom: 20px;
+}
+
+.legal-content li {
+    margin-bottom: 8px;
+}
+
+.legal-content a {
+    color: var(--accent-orange);
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.legal-box {
+    background-color: var(--bg-light);
+    border: 2px solid #000000;
+    box-shadow: 4px 4px 0px 0px #000000;
+    padding: 24px;
+    margin: 25px 0;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #000000;
+    line-height: 1.6;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 25px;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-decoration: none;
+    text-transform: uppercase;
+    border: 2px solid #000000;
+    padding: 12px 20px;
+    background: #000000;
+    box-shadow: 4px 4px 0px 0px var(--accent-orange);
+    transition: all 0.15s ease;
+}
+
+.back-link:hover {
+    background: var(--accent-orange);
+    color: #ffffff;
+    border-color: #000000;
+}
+
+@media (max-width: 768px) {
+    .legal-page { padding: 110px 15px 40px; }
+    .legal-card { padding: 25px 20px; }
+}
+
+
