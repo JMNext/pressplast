@@ -22,8 +22,8 @@ if (!empty($bot_trap)) {
 }
 
 // Конфигурация получателя и отправителя
-$to = 'jmaier@mail.ru'; // Отладочный email получателя заявок
-//$to = 'MATRIXPLAST@yandex.ru'; // Рабочий email получателя заявок
+//$to = 'jmaier@mail.ru'; // Отладочный email получателя заявок
+$to = 'MATRIXPLAST@yandex.ru'; // Рабочий email получателя заявок
 $from = 'admin@matrixplast.ru';
 
 // Загрузка локальной конфигурации секретов
