@@ -564,9 +564,8 @@
                             ОТПРАВИТЬ ТЗ НА РАСЧЕТ ИНЖЕНЕРАМ
                         </button>
 
-                        <div class="form-consent">
-                            Нажимая кнопку, вы соглашаетесь на обработку персональных данных в соответствии с ФЗ-152 РФ
-                            для подготовки коммерческого предложения.
+                        <div class="form-legal-notice">
+                            Нажимая кнопку «ОТПРАВИТЬ ТЗ НА РАСЧЕТ ИНЖЕНЕРАМ», вы даете <a href="pd-consent.html" target="_blank">Согласие на обработку персональных данных</a>, <a href="metrics-consent.html" target="_blank">Согласие на обработку метрических данных</a> и принимаете условия <a href="terms.html" target="_blank">Пользовательского соглашения</a> и <a href="privacy.html" target="_blank">Политики конфиденциальности</a>.
                         </div>
                     </form>
                 </div>
@@ -579,7 +578,7 @@
                 <div class="contacts-info-cell">
                     <div class="cell-label">[РЕКВИЗИТЫ И СВЯЗЬ]</div>
 
-                    <h2 class="contacts-title">ООО «МАТРИКСПЛАСТ»</h2>
+                    <h2 class="contacts-title">«МАТРИКСПЛАСТ»</h2>
 
                     <div class="contacts-list">
                         <div class="contact-item">
@@ -626,8 +625,14 @@
                 <span class="footer-tagline">ТЕХНОЛОГИЧЕСКОЕ ЛИТЬЕ ПОД ДАВЛЕНИЕМ</span>
             </div>
             <div class="footer-legal-cell">
-                <span>© 2026 ООО «МАТРИКСПЛАСТ». Все права защищены.</span>
+                <span>© 2026 «МАТРИКСПЛАСТ». Все права защищены.</span>
                 <span>ИНН: 531502117381 / ОГРН: 324470400133081</span>
+                <div style="margin-top: 10px; font-size: 0.8rem; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <a href="terms.html" style="color: #aaa; text-decoration: underline;">Пользовательское соглашение</a>
+                    <a href="privacy.html" style="color: #aaa; text-decoration: underline;">Политика конфиденциальности</a>
+                    <a href="pd-consent.html" style="color: #aaa; text-decoration: underline;">Согласие на обработку ПД</a>
+                    <a href="metrics-consent.html" style="color: #aaa; text-decoration: underline;">Согласие на метрики</a>
+                </div>
             </div>
             <div class="footer-barcode-cell">
                 <!-- Бруталистический штрих-код из линий разной толщины -->
@@ -857,8 +862,34 @@
                     closeModal();
                 }
             });
+
+            // Управление баннером Cookie
+            const cookieBanner = document.getElementById('cookie-banner');
+            const acceptCookiesBtn = document.getElementById('accept-cookies-btn');
+
+            if (cookieBanner && !localStorage.getItem('matrixplast_cookie_consent')) {
+                cookieBanner.style.display = 'block';
+            }
+
+            if (acceptCookiesBtn) {
+                acceptCookiesBtn.addEventListener('click', function () {
+                    localStorage.setItem('matrixplast_cookie_consent', 'accepted');
+                    if (cookieBanner) cookieBanner.style.display = 'none';
+                });
+            }
         });
     </script>
+
+    <!-- BANNER COOKIES -->
+    <div id="cookie-banner" class="cookie-banner" style="display: none;">
+        <div class="cookie-banner-content">
+            <div class="cookie-tag">[COOKIE-ALERT]</div>
+            <p class="cookie-text">
+                Мы используем файлы cookie и сервисы веб-аналитики для корректной работы калькулятора литья и улучшения сайта. Продолжая использовать сайт, вы соглашаетесь с <a href="privacy.html" target="_blank">Политикой конфиденциальности</a> и <a href="terms.html" target="_blank">Пользовательским соглашением</a>.
+            </p>
+            <button id="accept-cookies-btn" class="btn btn-accent btn-small" style="align-self: flex-start; cursor: pointer;">ПРИНЯТЬ</button>
+        </div>
+    </div>
 </body>
 
 </html>

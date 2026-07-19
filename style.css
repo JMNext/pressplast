@@ -1547,3 +1547,64 @@ select.form-control {
         font-size: 1.5rem;
     }
 }
+
+/* 14. COOKIE BANNER & FORM LEGAL NOTICE */
+.form-legal-notice {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 1rem;
+    line-height: 1.4;
+}
+
+.form-legal-notice a {
+    color: var(--accent-orange);
+    text-decoration: underline;
+}
+
+.cookie-banner {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    max-width: 460px;
+    width: calc(100% - 40px);
+    background-color: #111111;
+    color: #ffffff;
+    border: 2px solid var(--border-color);
+    box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    padding: 20px;
+    animation: slideUp 0.3s ease-out;
+}
+
+.cookie-banner-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cookie-tag {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+}
+
+.cookie-text {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #cccccc;
+    margin: 0;
+}
+
+.cookie-text a {
+    color: var(--accent-yellow);
+    text-decoration: underline;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
