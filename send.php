@@ -8,22 +8,45 @@
 date_default_timezone_set('Europe/Moscow');
 header('Content-Type: application/json; charset=utf-8');
 
+/**
+ * Вспомогательная функция записи событий в системный лог (logs/mail.log)
+ */
+function write_log($message, $level = 'INFO', $request_id = '-') {
+    $log_dir = __DIR__ . '/logs';
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0755, true);
+    }
+    
+    $log_file = $log_dir . '/mail.log';
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN_IP';
+    $timestamp = date('Y-m-d H:i:s');
+    $log_entry = sprintf("[%s] [%s] [%s] [IP: %s] %s\n", $timestamp, strtoupper($level), $request_id, $ip, $message);
+    
+    @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+}
+
+// Генерация уникального ID заявки по маске YYYYMMDD-hhmmss
+$request_id = date('Ymd-His');
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    write_log("Запрос отклонен: неверный метод " . ($_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN'), 'WARNING', $request_id);
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Метод запроса не поддерживается. Используйте POST.']);
     exit;
 }
 
+write_log("Новый POST-запрос на отправку формы. User-Agent: " . ($_SERVER['HTTP_USER_AGENT'] ?? 'Неизвестно'), 'INFO', $request_id);
+
 // Защита от спам-ботов Honeypot (поле-ловушка)
 $bot_trap = trim($_POST['client_midname'] ?? '');
 if (!empty($bot_trap)) {
+    write_log("Сработала спам-ловушка Honeypot (bot_trap: '$bot_trap'). Запрос скрыто заблокирован.", 'WARNING', $request_id);
     // Имитируем успешную отправку для робота
-    echo json_encode(['success' => true, 'request_id' => date('Ymd-His')]);
+    echo json_encode(['success' => true, 'request_id' => $request_id]);
     exit;
 }
 
 // Конфигурация получателя и отправителя
-//$to = 'jmaier@mail.ru'; // Отладочный email получателя заявок
 $to = 'MATRIXPLAST@yandex.ru'; // Рабочий email получателя заявок
 $from = 'admin@matrixplast.ru';
 
@@ -35,6 +58,7 @@ if (file_exists(__DIR__ . '/config.php')) {
 $smtp_password = $config['smtp_password'] ?? '';
 
 if (empty($smtp_password)) {
+    write_log("Ошибка конфигурации: SMTP пароль не задан в config.php", 'ERROR', $request_id);
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Ошибка конфигурации сервера: SMTP пароль не задан.']);
     exit;
@@ -54,8 +78,11 @@ $price_per_pcs = htmlspecialchars(trim($_POST['price-per-pcs'] ?? '0'));
 $price_total = htmlspecialchars(trim($_POST['price-total'] ?? '0'));
 $has_mold = htmlspecialchars(trim($_POST['has-mold'] ?? 'Не указано'));
 
+write_log("Данные заявки -> Имя: '$client_name', Тел: '$client_phone', Email: '$client_email', Материал: '$calc_material', Масса: '$calc_weight', Тираж: '$calc_qty', Итого: '$price_total'", 'INFO', $request_id);
+
 // Валидация обязательных полей
 if (empty($client_name) || empty($client_phone) || empty($client_email)) {
+    write_log("Ошибка валидации: не заполнены обязательные поля (Имя: '$client_name', Тел: '$client_phone', Email: '$client_email')", 'WARNING', $request_id);
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Заполните обязательные поля: имя, телефон и email.']);
     exit;
@@ -63,13 +90,11 @@ if (empty($client_name) || empty($client_phone) || empty($client_email)) {
 
 // Валидация формата email
 if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
+    write_log("Ошибка валидации: некорректный формат email '$client_email'", 'WARNING', $request_id);
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Указан некорректный адрес электронной почты.']);
     exit;
 }
-
-// Генерация уникального ID заявки по маске YYYYMMDD-hhmmss
-$request_id = date('Ymd-His');
 
 // Обработка прикрепленных файлов (мультизагрузка)
 $attachments = [];
@@ -98,21 +123,27 @@ if (isset($_FILES['client-files']) && is_array($_FILES['client-files']['name']))
 
 foreach ($file_entries as $file) {
     if ($file['error'] !== UPLOAD_ERR_OK) {
+        $err_msg = 'Ошибка загрузки файла ' . htmlspecialchars($file['name']) . '. Код: ' . $file['error'];
+        write_log("Ошибка файла: $err_msg", 'WARNING', $request_id);
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Ошибка загрузки файла ' . htmlspecialchars($file['name']) . '. Код: ' . $file['error']]);
+        echo json_encode(['success' => false, 'error' => $err_msg]);
         exit;
     }
 
     if ($file['size'] > $max_file_size) {
+        $err_msg = 'Файл ' . htmlspecialchars($file['name']) . ' превышает лимит 15 МБ.';
+        write_log("Ошибка файла: $err_msg", 'WARNING', $request_id);
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Файл ' . htmlspecialchars($file['name']) . ' превышает лимит 15 МБ.']);
+        echo json_encode(['success' => false, 'error' => $err_msg]);
         exit;
     }
 
     $total_files_size += $file['size'];
     if ($total_files_size > $max_total_size) {
+        $err_msg = 'Общий размер файлов превышает 25 МБ.';
+        write_log("Ошибка файла: $err_msg", 'WARNING', $request_id);
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Общий размер файлов превышает 25 МБ.']);
+        echo json_encode(['success' => false, 'error' => $err_msg]);
         exit;
     }
 
@@ -120,8 +151,10 @@ foreach ($file_entries as $file) {
     $extension = strtolower($file_info['extension'] ?? '');
 
     if (!in_array($extension, $allowed_extensions)) {
+        $err_msg = 'Недопустимый тип файла ' . htmlspecialchars($file['name']) . '. Разрешены: PDF, STEP, STP, DWG, изображения и архивы (ZIP, RAR).';
+        write_log("Ошибка файла: $err_msg", 'WARNING', $request_id);
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Недопустимый тип файла ' . htmlspecialchars($file['name']) . '. Разрешены: PDF, STEP, STP, DWG, изображения и архивы (ZIP, RAR).']);
+        echo json_encode(['success' => false, 'error' => $err_msg]);
         exit;
     }
 
@@ -135,10 +168,13 @@ foreach ($file_entries as $file) {
     }
 }
 
+if (!empty($attachments)) {
+    write_log("Успешно прикреплено файлов: " . count($attachments) . " (общий размер: " . round($total_files_size / 1024 / 1024, 2) . " МБ)", 'INFO', $request_id);
+}
+
 // Формирование темы письма
 $subject = "Новая заявка $request_id на расчет литья от $client_name";
-// Кодирование темы в Base64 для корректного отображения кириллицы в почтовых клиентах
-$subject = "=?utf-8?B?" . base64_encode($subject) . "?=";
+$subject_encoded = "=?utf-8?B?" . base64_encode($subject) . "?=";
 
 // Создание разделителя для multipart/mixed
 $boundary = md5(uniqid(time()));
@@ -148,7 +184,7 @@ $headers_arr = [
     'MIME-Version' => '1.0',
     'From' => "МАТРИКС-ПЛАСТ <$from>",
     'To' => $to,
-    'Subject' => $subject,
+    'Subject' => $subject_encoded,
     'Reply-To' => $client_email,
     'X-Mailer' => 'PHP/' . phpversion(),
     'Content-Type' => "multipart/mixed; boundary=\"$boundary\""
@@ -208,9 +244,11 @@ $body .= "--$boundary--";
 
 // Отправка письма через SMTP с авторизацией
 try {
-    send_mail_smtp($to, $subject, $body, $headers_arr, $from, $smtp_password);
+    send_mail_smtp($to, $subject_encoded, $body, $headers_arr, $from, $smtp_password, 'ssl://p1036777.mail.ihc.ru', 465, $request_id);
+    write_log("Заявка $request_id успешно отправлена на почту $to", 'SUCCESS', $request_id);
     echo json_encode(['success' => true, 'request_id' => $request_id]);
 } catch (Exception $e) {
+    write_log("Сбой отправки заявки $request_id через SMTP: " . $e->getMessage(), 'ERROR', $request_id);
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Ошибка отправки почты через SMTP: ' . $e->getMessage()]);
 }
@@ -218,17 +256,19 @@ try {
 /**
  * Функция отправки почты через SMTP-сервер с SSL шифрованием и авторизацией.
  */
-function send_mail_smtp($to, $subject, $body, $headers_arr, $from, $password, $smtp_host = 'ssl://p1036777.mail.ihc.ru', $smtp_port = 465) {
+function send_mail_smtp($to, $subject, $body, $headers_arr, $from, $password, $smtp_host = 'ssl://p1036777.mail.ihc.ru', $smtp_port = 465, $request_id = '-') {
     $timeout = 15;
     
-    // Открываем сокетное соединение к SMTP серверу
+    write_log("Попытка открытия сокета SMTP к $smtp_host:$smtp_port ...", 'INFO', $request_id);
     $socket = @fsockopen($smtp_host, $smtp_port, $errno, $errstr, $timeout);
     if (!$socket) {
-        throw new Exception("Не удалось подключиться к SMTP-серверу $smtp_host:$smtp_port. Ошибка: $errstr ($errno)");
+        $error_msg = "Не удалось подключиться к SMTP-серверу $smtp_host:$smtp_port. Ошибка: $errstr ($errno)";
+        write_log($error_msg, 'ERROR', $request_id);
+        throw new Exception($error_msg);
     }
     
     // Вспомогательная функция чтения ответов
-    $readResponse = function($socket, $expected_code) {
+    $readResponse = function($socket, $expected_code) use ($request_id) {
         $response = '';
         while ($line = fgets($socket, 515)) {
             $response .= $line;
@@ -237,8 +277,13 @@ function send_mail_smtp($to, $subject, $body, $headers_arr, $from, $password, $s
             }
         }
         $code = substr($response, 0, 3);
+        $clean_response = trim($response);
+        
         if ($code !== (string)$expected_code) {
-            throw new Exception("Код SMTP: $code, Ожидался: $expected_code. Ответ: " . trim($response));
+            write_log("SMTP Ответ ОШИБКА (ожидался $expected_code, получен $code): $clean_response", 'ERROR', $request_id);
+            throw new Exception("Код SMTP: $code, Ожидался: $expected_code. Ответ: " . $clean_response);
+        } else {
+            write_log("SMTP Ответ OK ($code): $clean_response", 'INFO', $request_id);
         }
         return $response;
     };
@@ -246,24 +291,32 @@ function send_mail_smtp($to, $subject, $body, $headers_arr, $from, $password, $s
     try {
         $readResponse($socket, 220);
         
-        fwrite($socket, "EHLO " . mail_domain($from) . "\r\n");
+        $domain = mail_domain($from);
+        write_log("SMTP Команда: EHLO $domain", 'INFO', $request_id);
+        fwrite($socket, "EHLO " . $domain . "\r\n");
         $readResponse($socket, 250);
         
+        write_log("SMTP Команда: AUTH LOGIN", 'INFO', $request_id);
         fwrite($socket, "AUTH LOGIN\r\n");
         $readResponse($socket, 334);
         
+        write_log("SMTP Передача логина ($from)", 'INFO', $request_id);
         fwrite($socket, base64_encode($from) . "\r\n");
         $readResponse($socket, 334);
         
+        write_log("SMTP Передача пароля [СКРЫТО]", 'INFO', $request_id);
         fwrite($socket, base64_encode($password) . "\r\n");
         $readResponse($socket, 235);
         
+        write_log("SMTP Команда: MAIL FROM: <$from>", 'INFO', $request_id);
         fwrite($socket, "MAIL FROM: <$from>\r\n");
         $readResponse($socket, 250);
         
+        write_log("SMTP Команда: RCPT TO: <$to>", 'INFO', $request_id);
         fwrite($socket, "RCPT TO: <$to>\r\n");
         $readResponse($socket, 250);
         
+        write_log("SMTP Команда: DATA", 'INFO', $request_id);
         fwrite($socket, "DATA\r\n");
         $readResponse($socket, 354);
         
@@ -273,16 +326,18 @@ function send_mail_smtp($to, $subject, $body, $headers_arr, $from, $password, $s
             $raw_headers .= "$k: $v\r\n";
         }
         
-        // Отправка заголовков и тела письма
+        write_log("SMTP Отправка заголовков и тела письма...", 'INFO', $request_id);
         fwrite($socket, $raw_headers . "\r\n" . $body . "\r\n.\r\n");
         $readResponse($socket, 250);
         
+        write_log("SMTP Команда: QUIT", 'INFO', $request_id);
         fwrite($socket, "QUIT\r\n");
         fclose($socket);
         return true;
     } catch (Exception $e) {
-        fwrite($socket, "QUIT\r\n");
-        fclose($socket);
+        write_log("Сбой в процессе SMTP-диалога: " . $e->getMessage(), 'ERROR', $request_id);
+        @fwrite($socket, "QUIT\r\n");
+        @fclose($socket);
         throw $e;
     }
 }
