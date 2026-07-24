@@ -478,20 +478,35 @@
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label" for="calc-weight">2. МАССА ОДНОГО ИЗДЕЛИЯ (ГРАММЫ):</label>
+                        <select id="calc-weight" class="form-control">
+                            <option value="0">0 гр</option>
+                            <option value="25" selected>25 гр</option>
+                            <option value="50">50 гр</option>
+                            <option value="75">75 гр</option>
+                            <option value="100">100 гр</option>
+                            <option value="125">125 гр</option>
+                            <option value="150">150 гр</option>
+                            <option value="175">175 гр</option>
+                            <option value="200">200 гр</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <div class="slider-label-row">
-                            <label class="form-label">2. ПЛАНИРУЕМЫЙ ТИРАЖ:</label>
-                            <span class="slider-value" id="qty-display">1 000 шт.</span>
+                            <label class="form-label" for="calc-qty-input">3. ПЛАНИРУЕМЫЙ ТИРАЖ (ШТ.):</label>
+                            <input type="number" id="calc-qty-input" min="0" max="100000" step="1" value="1000" class="form-control" style="width: 140px; text-align: right; font-family: var(--font-mono); font-weight: 700; padding: 0.3rem 0.6rem;">
                         </div>
-                        <input type="range" id="calc-qty" min="10" max="50000" step="10" value="1000"
+                        <input type="range" id="calc-qty" min="0" max="50000" step="10" value="1000"
                             class="slider-control">
                         <div class="slider-bounds">
-                            <span>10 шт.</span>
+                            <span>0 шт.</span>
                             <span>50 000 шт.</span>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">3. НАЛИЧИЕ ПРЕСС-ФОРМЫ:</label>
+                        <label class="form-label">4. НАЛИЧИЕ ПРЕСС-ФОРМЫ:</label>
                         <div class="radio-group">
                             <label class="radio-container">
                                 <input type="radio" name="mold" value="no" checked>
@@ -501,7 +516,7 @@
                             <label class="radio-container">
                                 <input type="radio" name="mold" value="yes">
                                 <span class="radio-custom"></span>
-                                Да, есть готовая пресс-форма для ТПА
+                                Да, есть готовая пресс-форма для мини-ТПА
                             </label>
                         </div>
                     </div>
@@ -558,14 +573,14 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">ПРИКРЕПИТЬ ЧЕРТЕЖИ / ЭСКИЗЫ (PDF, STEP, STP, DWG, PNG)</label>
+                            <label class="form-label">ПРИКРЕПИТЬ ЧЕРТЕЖИ / ЭСКИЗЫ (PDF, STEP, STP, DWG, PNG, JPG, ZIP, RAR)</label>
                             <div class="file-upload-wrapper">
-                                <input type="file" id="client-file" name="client-file" class="file-input">
+                                <input type="file" id="client-file" name="client-files[]" class="file-input" multiple>
                                 <div class="file-upload-btn">
                                     <span class="file-upload-icon">+</span>
-                                    <span class="file-upload-text">ВЫБРАТЬ ФАЙЛ С КОМПЬЮТЕРА</span>
+                                    <span class="file-upload-text">ВЫБРАТЬ ФАЙЛЫ С КОМПЬЮТЕРА</span>
                                 </div>
-                                <span class="file-name-display" id="file-name-display">Файл не выбран</span>
+                                <span class="file-name-display" id="file-name-display">Файлы не выбраны</span>
                             </div>
                         </div>
 
@@ -596,7 +611,11 @@
 
                     <div class="contacts-list">
                         <div class="contact-item">
-                            <span class="c-label">АДРЕС:</span>
+                            <span class="c-label">ЮРИДИЧЕСКИЙ АДРЕС:</span>
+                            <span class="c-val">188222, обл. Ленинградская, р-н. Лужский, п. Приозерный, ул. Центральная, д. 4.</span>
+                        </div>
+                        <div class="contact-item">
+                            <span class="c-label">АДРЕС ПРОИЗВОДСТВА:</span>
                             <span class="c-val">194363, г. Санкт-Петербург, посёлок Парголово, Ольгинская дорога, д. 2, литера А.</span>
                         </div>
                         <div class="contact-item">
@@ -708,8 +727,9 @@
 
             // Калькулятор
             const materialSelect = document.getElementById('calc-material');
+            const weightSelect = document.getElementById('calc-weight');
             const qtyInput = document.getElementById('calc-qty');
-            const qtyDisplay = document.getElementById('qty-display');
+            const qtyNumberInput = document.getElementById('calc-qty-input');
             const moldRadios = document.getElementsByName('mold');
 
             const pricePerPcsVal = document.getElementById('price-per-pcs');
@@ -721,12 +741,28 @@
                 return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 2 }).format(val);
             }
 
-            function recalculate() {
-                const qty = parseInt(qtyInput.value, 10);
-                qtyDisplay.textContent = new Intl.NumberFormat('ru-RU').format(qty) + ' шт.';
+            function recalculate(source) {
+                let qty = 0;
+                if (source === 'range') {
+                    qty = parseInt(qtyInput.value, 10) || 0;
+                    qtyNumberInput.value = qty;
+                } else if (source === 'number') {
+                    qty = parseInt(qtyNumberInput.value, 10);
+                    if (isNaN(qty) || qty < 0) {
+                        qty = 0;
+                    }
+                    if (qty <= 50000) {
+                        qtyInput.value = qty;
+                    }
+                } else {
+                    qty = parseInt(qtyNumberInput.value, 10);
+                    if (isNaN(qty) || qty < 0) {
+                        qty = 0;
+                        qtyNumberInput.value = 0;
+                    }
+                }
 
-                const selectedOption = materialSelect.options[materialSelect.selectedIndex];
-                const materialFactor = parseFloat(selectedOption.getAttribute('data-factor'));
+                const weightGrams = parseInt(weightSelect.value, 10) || 0;
 
                 let hasMold = false;
                 for (const radio of moldRadios) {
@@ -735,28 +771,14 @@
                     }
                 }
 
-                // Логика расчета стоимости:
-                // Чем больше тираж, тем меньше цена за штуку (эффект масштаба)
-                // Базовая цена детали из PP (самый дешевый) при тираже 1000 шт = 25 рублей
-                // Базовая стоимость ТПА подготовки формы: если формы нет, мы пишем, что требуется форма (ее стоимость рассчитывается отдельно).
-                // Но сама цена литья снижается.
-                let basePrice = 45;
-                if (qty < 100) {
-                    basePrice = 180;
-                } else if (qty < 500) {
-                    basePrice = 75;
-                } else if (qty < 2000) {
-                    basePrice = 30;
-                } else if (qty < 10000) {
-                    basePrice = 18;
-                } else {
-                    basePrice = 10;
-                }
+                // Формула расчета:
+                // Стоимость формы: 180 000 руб (если нет формы) или 0 руб (если есть форма)
+                // Стоимость ТИРАЖА = Стоимость формы + (Количество * Масса * 3 руб/г)
+                // Стоимость за деталь = Стоимость ТИРАЖА / Количество (если quantity > 0)
+                const moldCost = hasMold ? 0 : 180000;
+                const total = moldCost + (qty * weightGrams * 3);
+                const pricePerPcs = qty > 0 ? (total / qty) : 0;
 
-                let pricePerPcs = basePrice * materialFactor;
-
-                // Если пресс-формы нет, добавляется амортизационная наценка или просто комментарий. 
-                // Оставим стоимость литья, а в интерфейсе скроем или покажем инфо о пресс-форме
                 if (!hasMold) {
                     moldRow.style.display = 'flex';
                     moldLeadtime.textContent = '3-4 недели';
@@ -764,26 +786,29 @@
                     moldRow.style.display = 'none';
                 }
 
-                const total = pricePerPcs * qty;
-
                 pricePerPcsVal.textContent = '~ ' + pricePerPcs.toFixed(2) + ' ₽';
                 priceTotalVal.textContent = '~ ' + new Intl.NumberFormat('ru-RU').format(Math.round(total)) + ' ₽';
             }
 
-            materialSelect.addEventListener('change', recalculate);
-            qtyInput.addEventListener('input', recalculate);
-            moldRadios.forEach(radio => radio.addEventListener('change', recalculate));
+            materialSelect.addEventListener('change', () => recalculate('material'));
+            weightSelect.addEventListener('change', () => recalculate('weight'));
+            qtyInput.addEventListener('input', () => recalculate('range'));
+            qtyNumberInput.addEventListener('input', () => recalculate('number'));
+            moldRadios.forEach(radio => radio.addEventListener('change', () => recalculate('mold')));
 
-            recalculate(); // Инициализация
+            recalculate('init'); // Инициализация
 
             // Выгрузка имени файла
             const fileInput = document.getElementById('client-file');
             const fileDisplay = document.getElementById('file-name-display');
             fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
+                if (e.target.files.length === 1) {
                     fileDisplay.textContent = e.target.files[0].name;
+                } else if (e.target.files.length > 1) {
+                    const names = Array.from(e.target.files).map(f => f.name).join(', ');
+                    fileDisplay.textContent = `Выбрано файлов: ${e.target.files.length} (${names})`;
                 } else {
-                    fileDisplay.textContent = 'Файл не выбран';
+                    fileDisplay.textContent = 'Файлы не выбраны';
                 }
             });
 
@@ -811,7 +836,8 @@
                 // Добавляем данные расчета из калькулятора
                 const selectedOption = materialSelect.options[materialSelect.selectedIndex];
                 formData.append('calc-material', selectedOption.text);
-                formData.append('calc-qty', qtyInput.value);
+                formData.append('calc-weight', weightSelect.value + ' гр');
+                formData.append('calc-qty', qtyNumberInput.value);
                 
                 let hasMoldVal = 'no';
                 for (const radio of moldRadios) {
@@ -848,8 +874,8 @@
 
                         // Сбрасываем форму
                         form.reset();
-                        fileDisplay.textContent = 'Файл не выбран';
-                        recalculate();
+                        fileDisplay.textContent = 'Файлы не выбраны';
+                        recalculate('init');
                     } else {
                         alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
                     }

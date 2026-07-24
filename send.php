@@ -48,6 +48,7 @@ $client_message = htmlspecialchars(trim($_POST['client-message'] ?? ''));
 
 // Данные калькулятора (для удобства инженеров)
 $calc_material = htmlspecialchars(trim($_POST['calc-material'] ?? 'Не выбран'));
+$calc_weight = htmlspecialchars(trim($_POST['calc-weight'] ?? '25 гр'));
 $calc_qty = htmlspecialchars(trim($_POST['calc-qty'] ?? '0'));
 $price_per_pcs = htmlspecialchars(trim($_POST['price-per-pcs'] ?? '0'));
 $price_total = htmlspecialchars(trim($_POST['price-total'] ?? '0'));
@@ -70,45 +71,68 @@ if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
 // Генерация уникального ID заявки по маске YYYYMMDD-hhmmss
 $request_id = date('Ymd-His');
 
-// Обработка прикрепленного файла
-$file_attached = false;
-$file_data = null;
-$file_name = '';
-$file_type = '';
+// Обработка прикрепленных файлов (мультизагрузка)
+$attachments = [];
+$allowed_extensions = ['pdf', 'step', 'stp', 'dwg', 'png', 'jpg', 'jpeg', 'zip', 'rar'];
+$max_file_size = 15 * 1024 * 1024; // 15 МБ на один файл
+$max_total_size = 25 * 1024 * 1024; // 25 МБ суммарно
+$total_files_size = 0;
 
-if (isset($_FILES['client-file']) && $_FILES['client-file']['error'] !== UPLOAD_ERR_NO_FILE) {
-    $file = $_FILES['client-file'];
-    
-    // Проверка ошибок загрузки
+$file_entries = [];
+if (isset($_FILES['client-files']) && is_array($_FILES['client-files']['name'])) {
+    $file_count = count($_FILES['client-files']['name']);
+    for ($i = 0; $i < $file_count; $i++) {
+        if ($_FILES['client-files']['error'][$i] !== UPLOAD_ERR_NO_FILE) {
+            $file_entries[] = [
+                'name' => $_FILES['client-files']['name'][$i],
+                'type' => $_FILES['client-files']['type'][$i],
+                'tmp_name' => $_FILES['client-files']['tmp_name'][$i],
+                'error' => $_FILES['client-files']['error'][$i],
+                'size' => $_FILES['client-files']['size'][$i]
+            ];
+        }
+    }
+} elseif (isset($_FILES['client-file']) && $_FILES['client-file']['error'] !== UPLOAD_ERR_NO_FILE) {
+    $file_entries[] = $_FILES['client-file'];
+}
+
+foreach ($file_entries as $file) {
     if ($file['error'] !== UPLOAD_ERR_OK) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Ошибка при загрузке файла. Код ошибки: ' . $file['error']]);
+        echo json_encode(['success' => false, 'error' => 'Ошибка загрузки файла ' . htmlspecialchars($file['name']) . '. Код: ' . $file['error']]);
         exit;
     }
-    
-    // Ограничение размера файла (15 МБ = 15728640 байт)
-    $max_file_size = 15 * 1024 * 1024;
+
     if ($file['size'] > $max_file_size) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Файл слишком большой. Максимальный размер: 15 МБ.']);
+        echo json_encode(['success' => false, 'error' => 'Файл ' . htmlspecialchars($file['name']) . ' превышает лимит 15 МБ.']);
         exit;
     }
-    
-    // Проверка разрешенных расширений
-    $allowed_extensions = ['pdf', 'step', 'stp', 'dwg', 'png', 'jpg', 'jpeg', 'zip', 'rar'];
+
+    $total_files_size += $file['size'];
+    if ($total_files_size > $max_total_size) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Общий размер файлов превышает 25 МБ.']);
+        exit;
+    }
+
     $file_info = pathinfo($file['name']);
     $extension = strtolower($file_info['extension'] ?? '');
-    
+
     if (!in_array($extension, $allowed_extensions)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Недопустимый тип файла. Разрешены: PDF, STEP, STP, DWG, изображения и архивы (ZIP, RAR).']);
+        echo json_encode(['success' => false, 'error' => 'Недопустимый тип файла ' . htmlspecialchars($file['name']) . '. Разрешены: PDF, STEP, STP, DWG, изображения и архивы (ZIP, RAR).']);
         exit;
     }
-    
-    $file_attached = true;
-    $file_name = $file['name'];
-    $file_type = $file['type'];
-    $file_data = file_get_contents($file['tmp_name']);
+
+    $file_content = file_get_contents($file['tmp_name']);
+    if ($file_content !== false) {
+        $attachments[] = [
+            'name' => $file['name'],
+            'type' => !empty($file['type']) ? $file['type'] : 'application/octet-stream',
+            'data' => $file_content
+        ];
+    }
 }
 
 // Формирование темы письма
@@ -119,7 +143,6 @@ $subject = "=?utf-8?B?" . base64_encode($subject) . "?=";
 // Создание разделителя для multipart/mixed
 $boundary = md5(uniqid(time()));
 
-// Заголовки письма
 // Заголовки письма (ассоциативный массив для SMTP)
 $headers_arr = [
     'MIME-Version' => '1.0',
@@ -142,14 +165,23 @@ $message_body .= "Email для связи: $client_email\r\n\r\n";
 $message_body .= "Данные предварительного расчета в калькуляторе:\r\n";
 $message_body .= "--------------------------------------------------------\r\n";
 $message_body .= "Материал детали: $calc_material\r\n";
+$message_body .= "Масса одного изделия: $calc_weight\r\n";
 $message_body .= "Планируемый тираж: $calc_qty шт.\r\n";
-$message_body .= "Наличие пресс-формы: " . ($has_mold === 'yes' ? 'Да, есть готовая пресс-форма' : 'Нет, требуется изготовление формы') . "\r\n";
+$message_body .= "Наличие пресс-формы: " . ($has_mold === 'yes' ? 'Да, есть готовая пресс-форма для мини-ТПА' : 'Нет, требуется изготовление формы') . "\r\n";
 $message_body .= "Ориентировочная цена детали: $price_per_pcs\r\n";
 $message_body .= "Ориентировочная цена тиража: $price_total\r\n\r\n";
 
 $message_body .= "Технические требования и комментарий клиента:\r\n";
 $message_body .= "--------------------------------------------------------\r\n";
 $message_body .= (!empty($client_message) ? $client_message : "Комментарий отсутствует.") . "\r\n\r\n";
+
+if (!empty($attachments)) {
+    $message_body .= "Прикрепленные файлы (" . count($attachments) . " шт.):\r\n";
+    foreach ($attachments as $att) {
+        $message_body .= "- " . $att['name'] . "\r\n";
+    }
+    $message_body .= "\r\n";
+}
 
 $message_body .= "========================================================\r\n";
 $message_body .= "Письмо отправлено автоматически с сайта matrixplast.ru\r\n";
@@ -160,15 +192,13 @@ $body .= "Content-Type: text/plain; charset=utf-8\r\n";
 $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
 $body .= $message_body . "\r\n";
 
-// Если прикреплен файл, добавляем его в тело письма
-if ($file_attached && $file_data !== null) {
-    $file_encoded = chunk_split(base64_encode($file_data));
-    
-    // Защита имени файла от неверной кодировки в почтовых клиентах
-    $file_name_encoded = "=?utf-8?B?" . base64_encode($file_name) . "?=";
+// Прикрепление каждого файла
+foreach ($attachments as $att) {
+    $file_encoded = chunk_split(base64_encode($att['data']));
+    $file_name_encoded = "=?utf-8?B?" . base64_encode($att['name']) . "?=";
     
     $body .= "--$boundary\r\n";
-    $body .= "Content-Type: $file_type; name=\"$file_name_encoded\"\r\n";
+    $body .= "Content-Type: {$att['type']}; name=\"$file_name_encoded\"\r\n";
     $body .= "Content-Disposition: attachment; filename=\"$file_name_encoded\"\r\n";
     $body .= "Content-Transfer-Encoding: base64\r\n\r\n";
     $body .= $file_encoded . "\r\n";
